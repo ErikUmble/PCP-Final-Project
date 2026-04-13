@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include <cmath>
 #include <stdio.h>
 #include <cuda.h>
 #include <cuda_runtime.h>
@@ -106,20 +107,17 @@ int main(int argc, char *argv[]) {
 
   int iterations;
   int subiterations;
-  int graph_bit_size;
+  int graph_org_bit_size;
   char* graph_file;
 
   rng_state = atoi(argv[1]);
   rng_state = randomu64();
   iterations = atoi(argv[2]);
   subiterations = atoi(argv[3]);
-  graph_bit_size = atoi(argv[4]);
+  graph_org_bit_size = atoi(argv[4]);
   graph_file = argv[5];
 
-  if (graph_bit_size % GRAPH_VAR_BITSIZE != 0) {
-    printf("Graph size must be a multiple of %d\n", GRAPH_VAR_BITSIZE);
-    return 1;
-  }
+  int graph_bit_size = ceil(((float)graph_org_bit_size / GRAPH_VAR_BITSIZE)) * GRAPH_VAR_BITSIZE;
 
   int graph_int_size = graph_bit_size / GRAPH_VAR_BITSIZE;
 
@@ -127,6 +125,7 @@ int main(int argc, char *argv[]) {
   graph_var_t (*state);
   cudaMallocManaged(&graph, graph_bit_size * graph_int_size * sizeof(graph_var_t));
   cudaMallocManaged(&state, NUM_THREADS * graph_int_size * sizeof(graph_var_t));
+  memset(graph, 0, graph_bit_size * graph_int_size * sizeof(graph_var_t));
 
   // Read in graph file (adjaceny matrix ascii 0s and 1s)
   FILE *fp = fopen(graph_file, "r");
@@ -135,8 +134,8 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
-  for (int i = 0; i < graph_bit_size; i++) {
-    for (int j = 0; j < graph_bit_size; j++) {
+  for (int i = 0; i < graph_org_bit_size; i++) {
+    for (int j = 0; j < graph_org_bit_size; j++) {
       char c = fgetc(fp);
       if (c == '1') {
         // Set bit in graph
@@ -148,13 +147,6 @@ int main(int argc, char *argv[]) {
     // Consume newline
     fgetc(fp);
   }
-
-  // // Fill graph and state with random bits
-  // for (int i = 0; i < GRAPH_SIZE; i++) {
-  //   for (int j = 0; j < GRAPH_UINT64_SIZE; j++) {
-  //       graph[i * GRAPH_UINT64_SIZE + j] = randomu64();
-  //   }
-  // }
 
   // Initialize the state randomly
   for (int i = 0; i < NUM_THREADS; i++) {
