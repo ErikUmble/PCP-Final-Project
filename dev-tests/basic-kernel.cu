@@ -163,6 +163,12 @@ int main(int argc, char *argv[]) {
   graph_var_t *d_best_state;
   cudaMallocManaged(&d_best_state, graph_int_size * sizeof(graph_var_t));
 
+  // Set best state to thread 0
+
+  for (int i = 0; i < graph_int_size; i++) {
+    d_best_state[i] = state[i];
+  }
+
   printf("Graph and state initialized.\n");
 
   printf("Running kernel...\n");
@@ -192,11 +198,11 @@ int main(int argc, char *argv[]) {
     }
 
     if (i % (iterations/50) == 0) {
-      printf("Iteration %d: Max cut = %d (Thread %d)\n", i, max_cut, max_thread);
+      printf("Iteration %d: Max cut = %lu (Thread %d)\n", i, max_cut, max_thread);
     }
   }
 
-  printf("Max cut = %d (Thread %d)\n", max_cut, max_thread);
+  printf("Max cut = %lu (Thread %d)\n", max_cut, max_thread);
 
   return 0;
 }
