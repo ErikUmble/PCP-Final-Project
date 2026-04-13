@@ -5,9 +5,9 @@
 #include <curand.h>
 #include <curand_kernel.h>
 
-#define GRAPH_SIZE 64 * 128
+// #define GRAPH_SIZE 64 * 128
 #define GRAPH_VAR_BITSIZE 64
-#define GRAPH_UINT64_SIZE (GRAPH_SIZE / 64)
+// #define GRAPH_UINT64_SIZE (GRAPH_SIZE / 64)
 #define NUM_THREADS 2048
 
 typedef uint64_t graph_var_t;
@@ -28,22 +28,23 @@ uint64_t rnd64(uint64_t n)
     return n;
 }
 
+uint64_t rng_state = 1;
+
 uint64_t randomu64() {
-  static uint64_t counter = 1;
-  counter++;
-  return rnd64(counter);
+  rng_state++;
+  return rnd64(rng_state);
 }
 
 // Main kernel to update towards best state and compute cut cost for each thread
-template <uint32_t graph_size>
-__global__ void fast_cut(int iterations, graph_var_t *graph, graph_var_t *states, curandState *rand_state, graph_var_t *best_state, uint32_t *result) {
+// template <uint32_t graph_bit_size>
+__global__ void fast_cut(int iterations, uint32_t graph_bit_size, graph_var_t *graph, graph_var_t *states, curandState *rand_state, graph_var_t *best_state, uint32_t *result) {
   // Get our portion of state
   uint32_t idx = blockIdx.x * blockDim.x + threadIdx.x;
   graph_var_t *local_state = states + idx * (GRAPH_VAR_BITSIZE / 8);
 
   for (int i = 0; i < iterations; i++) {
     // Randomly move towards/away from best state
-    for (uint32_t bit = 0; bit < GRAPH_SIZE; bit++) {
+    for (uint32_t bit = 0; bit < graph_bit_size; bit++) {
       float rand = curand_uniform(rand_state + idx);
       // 80% chance of moving towards best state
       // 5% chance of becoming 1
@@ -72,14 +73,16 @@ __global__ void fast_cut(int iterations, graph_var_t *graph, graph_var_t *states
   // Sync threads
   __syncthreads();
 
+  uint32_t graph_int_size = graph_bit_size / GRAPH_VAR_BITSIZE;
+
   uint32_t cut = 0;
-  for (uint32_t i = 0; i < graph_size; i++) {
+  for (uint32_t i = 0; i < graph_bit_size; i++) {
     uint32_t offset = i % GRAPH_VAR_BITSIZE;
     uint32_t byte = i / GRAPH_VAR_BITSIZE;
     uint32_t state_value = (local_state[byte] >> offset) & 1;
     if (state_value == 0) {
-      for (uint32_t j = 0; j < GRAPH_UINT64_SIZE; j++) {
-        graph_var_t computed = local_state[j] & graph[i * GRAPH_UINT64_SIZE + j];
+      for (uint32_t j = 0; j < graph_int_size; j++) {
+        graph_var_t computed = local_state[j] & graph[i * graph_int_size + j];
         cut += __popcll(computed);
       }
     }
@@ -96,32 +99,67 @@ __global__ void setup_kernel(uint64_t seed, curandState *state) {
 
 int main(int argc, char *argv[]) {
   // Get arguments (iterations, subiterations)
-  if (argc != 3) {
-    printf("Usage: %s <iterations> <subiterations>\n", argv[0]);
+  if (argc != 6) {
+    printf("Usage: %s <seed> <iterations> <subiterations> <graph_size> <graph_file>\n", argv[0]);
     return 1;
   }
 
   int iterations;
   int subiterations;
+  int graph_bit_size;
+  char* graph_file;
 
-  iterations = atoi(argv[1]);
-  subiterations = atoi(argv[2]);
+  rng_state = atoi(argv[1]);
+  rng_state = randomu64();
+  iterations = atoi(argv[2]);
+  subiterations = atoi(argv[3]);
+  graph_bit_size = atoi(argv[4]);
+  graph_file = argv[5];
+
+  if (graph_bit_size % GRAPH_VAR_BITSIZE != 0) {
+    printf("Graph size must be a multiple of %d\n", GRAPH_VAR_BITSIZE);
+    return 1;
+  }
+
+  int graph_int_size = graph_bit_size / GRAPH_VAR_BITSIZE;
 
   graph_var_t (*graph);
   graph_var_t (*state);
-  cudaMallocManaged(&graph, GRAPH_SIZE * GRAPH_UINT64_SIZE * sizeof(graph_var_t));
-  cudaMallocManaged(&state, NUM_THREADS * GRAPH_UINT64_SIZE * sizeof(graph_var_t));
+  cudaMallocManaged(&graph, graph_bit_size * graph_int_size * sizeof(graph_var_t));
+  cudaMallocManaged(&state, NUM_THREADS * graph_int_size * sizeof(graph_var_t));
 
-  // Fill graph and state with random bits
-  for (int i = 0; i < GRAPH_SIZE; i++) {
-    for (int j = 0; j < GRAPH_UINT64_SIZE; j++) {
-        graph[i * GRAPH_UINT64_SIZE + j] = randomu64();
-    }
+  // Read in graph file (adjaceny matrix ascii 0s and 1s)
+  FILE *fp = fopen(graph_file, "r");
+  if (fp == NULL) {
+    printf("Error opening graph file: %s\n", graph_file);
+    return 1;
   }
 
+  for (int i = 0; i < graph_bit_size; i++) {
+    for (int j = 0; j < graph_bit_size; j++) {
+      char c = fgetc(fp);
+      if (c == '1') {
+        // Set bit in graph
+        int byte = j / GRAPH_VAR_BITSIZE;
+        int offset = j % GRAPH_VAR_BITSIZE;
+        graph[i * graph_int_size + byte] |= (1ULL << offset);
+      }
+    }
+    // Consume newline
+    fgetc(fp);
+  }
+
+  // // Fill graph and state with random bits
+  // for (int i = 0; i < GRAPH_SIZE; i++) {
+  //   for (int j = 0; j < GRAPH_UINT64_SIZE; j++) {
+  //       graph[i * GRAPH_UINT64_SIZE + j] = randomu64();
+  //   }
+  // }
+
+  // Initialize the state randomly
   for (int i = 0; i < NUM_THREADS; i++) {
-     for (int j = 0; j < GRAPH_UINT64_SIZE; j++) {
-      state[i * GRAPH_UINT64_SIZE + j] = randomu64();
+     for (int j = 0; j < graph_int_size; j++) {
+      state[i * graph_int_size + j] = randomu64();
     }
   }
 
@@ -131,7 +169,7 @@ int main(int argc, char *argv[]) {
   setup_kernel<<<NUM_THREADS / 256, 256>>>(randomu64(), d_rand_state);
 
   graph_var_t *d_best_state;
-  cudaMallocManaged(&d_best_state, GRAPH_UINT64_SIZE * sizeof(graph_var_t));
+  cudaMallocManaged(&d_best_state, graph_int_size * sizeof(graph_var_t));
 
   printf("Graph and state initialized.\n");
 
@@ -143,7 +181,7 @@ int main(int argc, char *argv[]) {
   uint32_t max_thread = 0;
   for (int i = 0; i < iterations; i++) {
     // Find cut costs
-    fast_cut<GRAPH_SIZE><<<NUM_THREADS / 256, 256>>>(subiterations, graph, state, d_rand_state, d_best_state, d_result);
+    fast_cut<<<NUM_THREADS / 256, 256>>>(subiterations, graph_bit_size, graph, state, d_rand_state, d_best_state, d_result);
     cudaDeviceSynchronize();
 
     // Find max
@@ -157,7 +195,7 @@ int main(int argc, char *argv[]) {
     }
 
     // Update best state
-    for (int j = 0; j < GRAPH_UINT64_SIZE; j++) {
+    for (int j = 0; j < graph_int_size; j++) {
       d_best_state[j] = state[max_thread * (GRAPH_VAR_BITSIZE / 8) + j];
     }
 
