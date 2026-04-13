@@ -5,7 +5,7 @@
 #include <curand.h>
 #include <curand_kernel.h>
 
-#define GRAPH_SIZE 64 * 4
+#define GRAPH_SIZE 64 * 128
 #define GRAPH_VAR_BITSIZE 64
 #define GRAPH_UINT64_SIZE (GRAPH_SIZE / 64)
 #define NUM_THREADS 2048
@@ -45,13 +45,13 @@ __global__ void fast_cut(int iterations, graph_var_t *graph, graph_var_t *states
     // Randomly move towards/away from best state
     for (uint32_t bit = 0; bit < GRAPH_SIZE; bit++) {
       float rand = curand_uniform(rand_state + idx);
-      // 60% chance of moving towards best state
-      // 10% chance of becoming 1
-      // 10% chance of becoming 0
-      // 20% chance of staying the same
+      // 80% chance of moving towards best state
+      // 5% chance of becoming 1
+      // 5% chance of becoming 0
+      // 10% chance of staying the same
       uint32_t byte = bit / GRAPH_VAR_BITSIZE;
       uint32_t offset = bit % GRAPH_VAR_BITSIZE;
-      if (rand < 0.6f) {
+      if (rand < 0.8f) {
         // Move towards best state
         uint32_t best_bit = (best_state[byte] >> offset) & 1;
         if (best_bit == 1) {
@@ -59,10 +59,10 @@ __global__ void fast_cut(int iterations, graph_var_t *graph, graph_var_t *states
         } else {
           local_state[byte] &= ~(1ULL << offset);
         }
-      } else if (rand < 0.7f) {
+      } else if (rand < 0.85f) {
         // Become 1
         local_state[byte] |= (1ULL << offset);
-      } else if (rand < 0.8f) {
+      } else if (rand < 0.9f) {
         // Become 0
         local_state[byte] &= ~(1ULL << offset);
       }
@@ -161,7 +161,7 @@ int main(int argc, char *argv[]) {
       d_best_state[j] = state[max_thread * (GRAPH_VAR_BITSIZE / 8) + j];
     }
 
-    if (i % 200 == 0) {
+    if (i % (iterations/50) == 0) {
       printf("Iteration %d: Max cut = %d (Thread %d)\n", i, max_cut, max_thread);
     }
   }
