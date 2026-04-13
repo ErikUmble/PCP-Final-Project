@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include <stdio.h>
+#include <cuda.h>
 #include <cuda_runtime.h>
 
 #define GRAPH_SIZE 64 * 512
@@ -26,36 +27,27 @@ uint64_t rnd64(uint64_t n)
     return n;
 }
 
-uint8_t popcnt(uint64_t x) {
-  // In CPU use popcnt instruction and in CUDA use __popcll()
-#if defined(__CUDA_ARCH__)
-  return __popcll(x);
-#else
-  return __builtin_popcountll(x);
-#endif
-}
-
-uint64_t random() {
+uint64_t randomu64() {
   static uint64_t counter = 1;
   counter++;
   return rnd64(counter);
 }
 
-template <uint32_t GRAPH_SIZE>;
-__global__ void fast_cut(graph_var_t graph[GRAPH_SIZE][GRAPH_UINT64_SIZE], graph_var_t *state, uint32_t *result) {
+template <uint32_t graph_size>
+__global__ void fast_cut(graph_var_t *graph, graph_var_t *state, uint32_t *result) {
   // get our portion of state
   uint32_t idx = blockIdx.x * blockDim.x + threadIdx.x;
-  graph_var_t local_state* = state + idx * (GRAPH_VAR_BITSIZE / 8);
+  graph_var_t *local_state = state + idx * (GRAPH_VAR_BITSIZE / 8);
 
   uint32_t cut = 0;
-  for (uint32_t i = 0; i < GRAPH_SIZE; i++) {
+  for (uint32_t i = 0; i < graph_size; i++) {
     uint32_t offset = i % GRAPH_VAR_BITSIZE;
     uint32_t byte = i / GRAPH_VAR_BITSIZE;
     uint32_t state_value = (local_state[byte] >> offset) & 1;
     if (state_value == 0) {
       for (uint32_t j = 0; j < GRAPH_UINT64_SIZE; j++) {
-        graph_var_t computed = local_state[j] & graph[i][j];
-        cut += popcnt(computed);
+        graph_var_t computed = local_state[j] & graph[i * GRAPH_UINT64_SIZE + j];
+        cut += __popcll(computed);
       }
     }
   }
@@ -64,21 +56,21 @@ __global__ void fast_cut(graph_var_t graph[GRAPH_SIZE][GRAPH_UINT64_SIZE], graph
 }
 
 int main() {
-  graph_var_t (*graph)[GRAPH_UINT64_SIZE];
-  graph_var_t (*state)[GRAPH_UINT64_SIZE];
+  graph_var_t (*graph);
+  graph_var_t (*state);
   cudaMallocManaged(&graph, GRAPH_SIZE * GRAPH_UINT64_SIZE * sizeof(graph_var_t));
   cudaMallocManaged(&state, NUM_THREADS * GRAPH_UINT64_SIZE * sizeof(graph_var_t));
 
   // Fill graph and state with random bits
   for (int i = 0; i < GRAPH_SIZE; i++) {
     for (int j = 0; j < GRAPH_UINT64_SIZE; j++) {
-      graph[i][j] = random();
+        graph[i * GRAPH_UINT64_SIZE + j] = randomu64();
     }
   }
 
   for (int i = 0; i < NUM_THREADS; i++) {
      for (int j = 0; j < GRAPH_UINT64_SIZE; j++) {
-      states[i][j] = random();
+      state[i * GRAPH_UINT64_SIZE + j] = randomu64();
     }
   }
 
