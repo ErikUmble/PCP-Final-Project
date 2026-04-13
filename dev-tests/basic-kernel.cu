@@ -5,13 +5,12 @@
 #include <curand.h>
 #include <curand_kernel.h>
 
-#define GRAPH_SIZE 64 * 512
+#define GRAPH_SIZE 64 * 4
 #define GRAPH_VAR_BITSIZE 64
 #define GRAPH_UINT64_SIZE (GRAPH_SIZE / 64)
-#define NUM_THREADS 512
+#define NUM_THREADS 2048
 
 typedef uint64_t graph_var_t;
-
 
 // == RANDOM NUMBERS ==
 
@@ -37,34 +36,36 @@ uint64_t randomu64() {
 
 // Main kernel to update towards best state and compute cut cost for each thread
 template <uint32_t graph_size>
-__global__ void fast_cut(graph_var_t *graph, graph_var_t *states, curandState *rand_state, graph_var_t *best_state, uint32_t *result) {
+__global__ void fast_cut(int iterations, graph_var_t *graph, graph_var_t *states, curandState *rand_state, graph_var_t *best_state, uint32_t *result) {
   // Get our portion of state
   uint32_t idx = blockIdx.x * blockDim.x + threadIdx.x;
   graph_var_t *local_state = states + idx * (GRAPH_VAR_BITSIZE / 8);
 
-  // Randomly move towards/away from best state
-  for (uint32_t bit = 0; bit < GRAPH_SIZE; bit++) {
-    float rand = curand_uniform(rand_state + idx);
-    // 60% chance of moving towards best state
-    // 10% chance of becoming 1
-    // 10% chance of becoming 0
-    // 20% chance of staying the same
-    uint32_t byte = bit / GRAPH_VAR_BITSIZE;
-    uint32_t offset = bit % GRAPH_VAR_BITSIZE;
-    if (rand < 0.6f) {
-      // Move towards best state
-      uint32_t best_bit = (best_state[byte] >> offset) & 1;
-      if (best_bit == 1) {
+  for (int i = 0; i < iterations; i++) {
+    // Randomly move towards/away from best state
+    for (uint32_t bit = 0; bit < GRAPH_SIZE; bit++) {
+      float rand = curand_uniform(rand_state + idx);
+      // 60% chance of moving towards best state
+      // 10% chance of becoming 1
+      // 10% chance of becoming 0
+      // 20% chance of staying the same
+      uint32_t byte = bit / GRAPH_VAR_BITSIZE;
+      uint32_t offset = bit % GRAPH_VAR_BITSIZE;
+      if (rand < 0.6f) {
+        // Move towards best state
+        uint32_t best_bit = (best_state[byte] >> offset) & 1;
+        if (best_bit == 1) {
+          local_state[byte] |= (1ULL << offset);
+        } else {
+          local_state[byte] &= ~(1ULL << offset);
+        }
+      } else if (rand < 0.7f) {
+        // Become 1
         local_state[byte] |= (1ULL << offset);
-      } else {
+      } else if (rand < 0.8f) {
+        // Become 0
         local_state[byte] &= ~(1ULL << offset);
       }
-    } else if (rand < 0.7f) {
-      // Become 1
-      local_state[byte] |= (1ULL << offset);
-    } else if (rand < 0.8f) {
-      // Become 0
-      local_state[byte] &= ~(1ULL << offset);
     }
   }
 
@@ -93,7 +94,19 @@ __global__ void setup_kernel(uint64_t seed, curandState *state) {
   curand_init(seed, idx, 0, &state[idx]);
 }
 
-int main() {
+int main(int argc, char *argv[]) {
+  // Get arguments (iterations, subiterations)
+  if (argc != 3) {
+    printf("Usage: %s <iterations> <subiterations>\n", argv[0]);
+    return 1;
+  }
+
+  int iterations;
+  int subiterations;
+
+  iterations = atoi(argv[1]);
+  subiterations = atoi(argv[2]);
+
   graph_var_t (*graph);
   graph_var_t (*state);
   cudaMallocManaged(&graph, GRAPH_SIZE * GRAPH_UINT64_SIZE * sizeof(graph_var_t));
@@ -126,14 +139,16 @@ int main() {
   uint32_t *d_result;
   cudaMallocManaged(&d_result, NUM_THREADS * sizeof(uint32_t));
 
-  for (int i = 0; i < 200; i++) {
+  uint32_t max_cut = 0;
+  uint32_t max_thread = 0;
+  for (int i = 0; i < iterations; i++) {
     // Find cut costs
-    fast_cut<GRAPH_SIZE><<<NUM_THREADS / 256, 256>>>(graph, state, d_rand_state, d_best_state, d_result);
+    fast_cut<GRAPH_SIZE><<<NUM_THREADS / 256, 256>>>(subiterations, graph, state, d_rand_state, d_best_state, d_result);
     cudaDeviceSynchronize();
 
     // Find max
-    uint32_t max_cut = 0;
-    uint32_t max_thread = 0;
+    max_cut = 0;
+    max_thread = 0;
     for (int j = 0; j < NUM_THREADS; j++) {
       if (d_result[j] > max_cut) {
         max_cut = d_result[j];
@@ -146,13 +161,12 @@ int main() {
       d_best_state[j] = state[max_thread * (GRAPH_VAR_BITSIZE / 8) + j];
     }
 
-    printf("Iteration %d: Max cut = %d (Thread %d)\n", i, max_cut, max_thread);
+    if (i % 200 == 0) {
+      printf("Iteration %d: Max cut = %d (Thread %d)\n", i, max_cut, max_thread);
+    }
   }
 
-  printf("Results:\n");
-  for (int i = 0; i < NUM_THREADS; i++) {
-    printf("Thread %d: Cut = %d\n", i, d_result[i]);
-  }
+  printf("Max cut = %d (Thread %d)\n", max_cut, max_thread);
 
   return 0;
 }
