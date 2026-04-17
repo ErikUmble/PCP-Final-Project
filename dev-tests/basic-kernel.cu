@@ -38,7 +38,7 @@ uint64_t randomu64() {
 
 // Main kernel to update towards best state and compute cut cost for each thread
 // template <uint32_t graph_bit_size>
-__global__ void fast_cut(int iterations, uint32_t graph_bit_size, graph_var_t *graph, graph_var_t *states, curandState *rand_state, graph_var_t *best_state, uint32_t *result) {
+__global__ void fast_cut(int iterations, uint32_t graph_bit_size, graph_var_t *graph, graph_var_t *states, curandState *rand_state, graph_var_t *best_state, uint32_t *result // replace result with unsigned long long *global_max ) {
   // Get our portion of state
   uint32_t idx = blockIdx.x * blockDim.x + threadIdx.x;
   graph_var_t *local_state = states + idx * (GRAPH_VAR_BITSIZE / 8);
@@ -72,6 +72,12 @@ __global__ void fast_cut(int iterations, uint32_t graph_bit_size, graph_var_t *g
   }
 
   // Sync threads
+  // possible change 1:
+  //     is there a need for this considering that
+  //     the treads each operate on the local state and the best
+  //     state is only read upon initialization we may be able to
+  //     get a bit of read/calc overlap if it is removed and since
+  //     there are not read dependencies it should be safe
   __syncthreads();
 
   uint32_t graph_int_size = graph_bit_size / GRAPH_VAR_BITSIZE;
@@ -89,6 +95,9 @@ __global__ void fast_cut(int iterations, uint32_t graph_bit_size, graph_var_t *g
     }
   }
 
+  // (possible change 2) Pack the 32-bit cut and 32-bit thread ID (idx) into a single 64-bit variable
+  // (possible change 2) unsigned long long combined = ((unsigned long long)cut << 32) | (uint32_t)idx;
+  // (possible change 2) atomicMax(global_max, combined);
   result[idx] = cut;
 }
 
@@ -175,14 +184,30 @@ int main(int argc, char *argv[]) {
   uint32_t *d_result;
   cudaMallocManaged(&d_result, NUM_THREADS * sizeof(uint32_t));
 
+  // (possible change 2) global maximum bit
+  // (possible change 2) unsigned long long *d_global_max;
+  // (possible change 2) cudaMallocManaged(&d_global_max, sizeof(unsigned long long));
+
   uint32_t max_cut = 0;
   uint32_t max_thread = 0;
   for (int i = 0; i < iterations; i++) {
+    // (possible change 2) result best thread
+    // (possible change 2) *d_global_max = 0;
+
     // Find cut costs
     fast_cut<<<NUM_THREADS / 256, 256>>>(subiterations, graph_bit_size, graph, state, d_rand_state, d_best_state, d_result);
     cudaDeviceSynchronize();
 
     // Find max
+    // possible change 2:
+    //     should we try to implement parallel reduction to find max value of thread on gpu
+    //     https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html?highlight=atomicMax#atomicmax
+    //     we would need to change the final parameter from uint32_t *result to unsigned long long *global_max instead of d_result
+    //     to then use atomic max to find best thread. note if we scale the number of threads up we might have to deal with atomic
+    //     collisions and need to either import CUB ArgMax or similar
+    //     https://nvidia.github.io/cccl/unstable/cub/api/structcub_1_1DeviceReduce.html#_CPPv4I00EN3cub12DeviceReduce6ArgMaxE11cudaError_tPvR6size_t14InputIteratorT15OutputIteratorTi12cudaStream_t
+    // (possible change 2) max_cut = (uint32_t)(*d_global_max >> 32); // shift right 32
+    // (possible change 2) max_thread = (uint32_t)(*d_global_max & 0xFFFFFFFF); // get thread id
     max_cut = 0;
     max_thread = 0;
     for (int j = 0; j < NUM_THREADS; j++) {
