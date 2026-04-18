@@ -1,0 +1,208 @@
+#include<stdio.h>
+#include<stdlib.h>
+#include<unistd.h>
+#include<stdbool.h>
+#include<math.h>
+#include<string.h>
+#include<stdint.h>
+#include<mpi.h>
+
+#include "max-cut.h"
+
+extern void cudaLandFastCut(int subiterations, int graph_bit_size, graph_var_t *graph, graph_var_t *state, graph_var_t *d_best_state, uint32_t *d_result);
+extern void cudaLandInit(uint64_t seed);
+extern void* cudaLandMalloc( size_t size );
+extern void cudaLandFree( void *ptr );
+
+typedef unsigned long long ticks;
+
+// == RANDOM NUMBERS ==
+
+// https://www.reddit.com/r/C_Programming/comments/ozew2u/comment/h7zijm8/?utm_source=share&utm_medium=web3x&utm_name=web3xcss&utm_term=1&utm_content=share_button
+uint64_t rnd64(uint64_t n)
+{
+  const uint64_t z = 0x9FB21C651E98DF25;
+
+  n ^= ((n << 49) | (n >> 15)) ^ ((n << 24) | (n >> 40));
+  n *= z;
+  n ^= n >> 35;
+  n *= z;
+  n ^= n >> 28;
+
+  return n;
+}
+
+uint64_t rng_state = 1;
+
+uint64_t randomu64() {
+  rng_state++;
+  return rnd64(rng_state);
+}
+
+#define SEND_TAG 0
+
+// IBM POWER9 System clock with 512MHZ resolution.
+static __inline__ ticks getticks(void)
+{
+  unsigned int tbl, tbu0, tbu1;
+
+  do {
+    __asm__ __volatile__ ("mftbu %0" : "=r"(tbu0));
+    __asm__ __volatile__ ("mftb %0" : "=r"(tbl));
+    __asm__ __volatile__ ("mftbu %0" : "=r"(tbu1));
+  } while (tbu0 != tbu1);
+
+  return (((unsigned long long)tbu0) << 32) | tbl;
+}
+ 
+int main(int argc, char *argv[])
+{
+  int seed, iterations, subiterations, graph_org_bit_size, communication_delay;
+  char *graph_file;
+  graph_var_t *graph;
+  graph_var_t *state;
+
+  ticks start = 0;
+  ticks finish = 0;
+
+  // initialize MPI
+  MPI_Init(&argc, &argv);
+
+  int npes, rank;
+  MPI_Comm_size(MPI_COMM_WORLD, &npes);
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  MPI_Barrier(MPI_COMM_WORLD);
+
+
+  if (argc != 7) {
+    // rank 0 reports errors with the command line arguments
+    if (rank == 0) {
+      printf("Usage: %s <seed> <iterations> <subiterations> <graph_size> <graph_file> <communication_delay>\n", argv[0]);
+    }
+    exit(1);
+  }
+  sscanf(argv[1], "%u", &seed);
+  sscanf(argv[2], "%u", &iterations);
+  sscanf(argv[3], "%u", &subiterations);
+  sscanf(argv[4], "%u", &graph_org_bit_size);
+  graph_file = argv[5];
+  sscanf(argv[6], "%u", &communication_delay);
+
+  // Use a different random state offset for each process to ensure unique random sequences across them
+  rng_state = seed + rank;
+  rng_state += randomu64();
+
+  int graph_bit_size = ceil(((float)graph_org_bit_size / GRAPH_VAR_BITSIZE)) * GRAPH_VAR_BITSIZE;
+  int graph_int_size = graph_bit_size / GRAPH_VAR_BITSIZE;
+
+  graph = cudaLandMalloc(graph_bit_size * graph_int_size * sizeof(graph_var_t));
+  state = cudaLandMalloc(NUM_THREADS * graph_int_size * sizeof(graph_var_t));
+  memset(graph, 0, graph_bit_size * graph_int_size * sizeof(graph_var_t));
+
+  // Root reads in graph file (adjaceny matrix ascii 0s and 1s)
+  if (rank == 0) {
+    FILE *fp = fopen(graph_file, "r");
+    if (fp == NULL) {
+      printf("Error opening graph file: %s\n", graph_file);
+      return 1;
+    }
+
+    for (int i = 0; i < graph_org_bit_size; i++) {
+      for (int j = 0; j < graph_org_bit_size; j++) {
+        char c = fgetc(fp);
+        if (c == '1') {
+          // Set bit in graph
+          int byte = j / GRAPH_VAR_BITSIZE;
+          int offset = j % GRAPH_VAR_BITSIZE;
+          graph[i * graph_int_size + byte] |= (1ULL << offset);
+        }
+      }
+      // Consume newline
+      fgetc(fp);
+    }
+  }
+
+  // Distribute graph to all processes
+  MPI_Bcast(graph, graph_bit_size * graph_int_size, MPI_UINT64_T, 0, MPI_COMM_WORLD);
+
+  // Initialize the state randomly
+  for (int i = 0; i < NUM_THREADS; i++) {
+    for (int j = 0; j < graph_int_size; j++) {
+      state[i * graph_int_size + j] = randomu64();
+    }
+  }
+  
+  cudaLandInit(randomu64());
+
+  // initialize best state to all 0s
+  graph_var_t *d_best_state;
+  d_best_state = cudaLandMalloc(graph_int_size * sizeof(graph_var_t));
+  memset(d_best_state, 0, graph_int_size * sizeof(graph_var_t));
+
+  uint32_t *d_result;
+  d_result = cudaLandMalloc(NUM_THREADS * sizeof(uint32_t));
+
+  uint32_t max_cut = 0;
+  uint32_t max_thread = 0;
+  struct {
+      int val;
+      int rank;
+  } local_best, global_best;
+  for (int i = 0; i < iterations; i++) {
+    // Find cut costs
+    cudaLandFastCut(subiterations, graph_bit_size, graph, state, d_best_state, d_result);
+
+    // Find max
+    uint32_t iteration_max_cut = 0;
+    max_thread = 0;
+    for (int j = 0; j < NUM_THREADS; j++) {
+      if (d_result[j] > iteration_max_cut) {
+        iteration_max_cut = d_result[j];
+        max_thread = j;
+      }
+    }
+
+    // Update local best state only when this iteration improves this rank's best-known cut.
+    if (iteration_max_cut > max_cut) {
+      max_cut = iteration_max_cut;
+      for (int j = 0; j < graph_int_size; j++) {
+        d_best_state[j] = state[max_thread * graph_int_size + j];
+      }
+    }
+
+    // every communication_delay iterations, broadcast the best state to all processes to synchronize the best state across
+    if (i % communication_delay == 0) {
+      local_best.val = (int) max_cut;
+      local_best.rank = rank;
+      MPI_Allreduce(&local_best, &global_best, 1, MPI_2INT, MPI_MAXLOC, MPI_COMM_WORLD);
+
+      max_cut = global_best.val;
+
+      if (rank == 0) {
+        printf("Rank %d: Broadcasting best state from rank %d with cut %llu\n", rank, global_best.rank, (unsigned long long) max_cut);
+      }
+
+      // broadcast the best state from the best rank to all processes
+      MPI_Bcast(d_best_state, graph_int_size, MPI_UINT64_T, global_best.rank, MPI_COMM_WORLD);
+    }
+
+    if (i % (iterations/50) == 0 && rank == 0) {
+      printf("Iteration %d: Best cut so far = %llu\n", i, (unsigned long long) max_cut);
+    }
+  }
+
+  if (rank == 0) {
+    printf("Final Max cut = %llu (Thread %d)\n", (unsigned long long) max_cut, max_thread);
+  }
+
+  // Cleanup
+  cudaLandFree(graph);
+  cudaLandFree(state);
+  cudaLandFree(d_best_state);
+  cudaLandFree(d_result);
+
+  MPI_Finalize();
+
+  return 0;
+}
+
