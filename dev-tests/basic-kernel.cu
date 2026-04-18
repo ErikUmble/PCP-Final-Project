@@ -41,7 +41,8 @@ uint64_t randomu64() {
 __global__ void fast_cut(int iterations, uint32_t graph_bit_size, graph_var_t *graph, graph_var_t *states, curandState *rand_state, graph_var_t *best_state, uint32_t *result) {
   // Get our portion of state
   uint32_t idx = blockIdx.x * blockDim.x + threadIdx.x;
-  graph_var_t *local_state = states + idx * (GRAPH_VAR_BITSIZE / 8);
+  uint32_t graph_int_size = graph_bit_size / GRAPH_VAR_BITSIZE;
+  graph_var_t *local_state = states + idx * graph_int_size;
 
   for (int i = 0; i < iterations; i++) {
     // Randomly move towards/away from best state
@@ -73,8 +74,6 @@ __global__ void fast_cut(int iterations, uint32_t graph_bit_size, graph_var_t *g
 
   // Sync threads
   __syncthreads();
-
-  uint32_t graph_int_size = graph_bit_size / GRAPH_VAR_BITSIZE;
 
   uint32_t cut = 0;
   for (uint32_t i = 0; i < graph_bit_size; i++) {
