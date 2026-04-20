@@ -54,7 +54,7 @@ static __inline__ ticks getticks(void)
 
   return (((unsigned long long)tbu0) << 32) | tbl;
 }
- 
+
 int main(int argc, char *argv[])
 {
   int seed, iterations, subiterations, graph_org_bit_size, communication_delay;
@@ -62,8 +62,6 @@ int main(int argc, char *argv[])
   graph_var_t *graph;
   graph_var_t *state;
 
-  ticks start = 0;
-  ticks finish = 0;
 
   // initialize MPI
   MPI_Init(&argc, &argv);
@@ -73,7 +71,6 @@ int main(int argc, char *argv[])
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Barrier(MPI_COMM_WORLD);
 
-
   if (argc != 7) {
     // rank 0 reports errors with the command line arguments
     if (rank == 0) {
@@ -81,6 +78,9 @@ int main(int argc, char *argv[])
     }
     exit(1);
   }
+
+  ticks start = getticks();
+
   sscanf(argv[1], "%u", &seed);
   sscanf(argv[2], "%u", &iterations);
   sscanf(argv[3], "%u", &subiterations);
@@ -131,7 +131,7 @@ int main(int argc, char *argv[])
       state[i * graph_int_size + j] = randomu64();
     }
   }
-  
+
   cudaLandInit(randomu64());
 
   // initialize best state to all 0s
@@ -193,6 +193,7 @@ int main(int argc, char *argv[])
 
   if (rank == 0) {
     printf("Final Max cut = %llu (Thread %d)\n", (unsigned long long) max_cut, max_thread);
+    printf("Time: %f\n", (double)(getticks() - start) / 512e6);
   }
 
   // Cleanup
