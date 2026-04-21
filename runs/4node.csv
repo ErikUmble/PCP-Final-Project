@@ -1,0 +1,4 @@
+nodes,ranks,seed,iterations,subiterations,graph_size,graph_file,communication_delay
+3,12,1,50,5,1430,graphs/g05_100.0.matrix.1430,0
+3,12,2,50,5,1430,graphs/g05_100.0.matrix.1430,0
+3,12,3,50,5,1430,graphs/g05_100.0.matrix.1430,0

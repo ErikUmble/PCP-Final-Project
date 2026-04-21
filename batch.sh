@@ -2,14 +2,17 @@
 #SBATCH --job-name=maxcut-seq
 #SBATCH --output=logs/%x-%j.out
 #SBATCH --error=logs/%x-%j.err
-#SBATCH --time=24:00:00
+#SBATCH --gres=gpu:4
 
 set -euo pipefail
+set -x
 
 if [ "$#" -ne 2 ]; then
     echo "Usage: sbatch -N <max_nodes> $0 <runs.csv> <results.csv>"
     exit 1
 fi
+
+module load xl_r spectrum-mpi cuda
 
 CSV="$1"
 OUTCSV="$2"
@@ -17,38 +20,38 @@ OUTCSV="$2"
 mkdir -p logs
 
 # absolute path to executable
-EXEC=$(realpath ../max-cut)
+EXEC=$(realpath ./max-cut)
 
-# header
-header=$(head -n 1 "$CSV")
-echo "${header},time_result" > "$OUTCSV"
+{
+    # header
+    read header
+    echo "${header},time_result,cut_result" > "$OUTCSV"
 
-tail -n +2 "$CSV" | while IFS=, read -r \
-    nodes ranks seed iterations subiterations graph_size graph_file communication_delay
-do
-    echo "Running: nodes=$nodes ranks=$ranks seed=$seed"
+    while IFS=, read -r \
+        nodes ranks seed iterations subiterations graph_size graph_file communication_delay
+    do
+        echo "Running: nodes=$nodes ranks=$ranks seed=$seed"
 
-    logfile=$(mktemp)
+        logfile=$(mktemp)
 
-    # subset host list from allocation
-    scontrol show hostnames "$SLURM_NODELIST" | head -n "$nodes" > hostfile
+        mpirun \
+            -np "$ranks" \
+            "$EXEC" \
+            "$seed" \
+            "$iterations" \
+            "$subiterations" \
+            "$graph_size" \
+            "$(dirname $EXEC)/$graph_file" \
+            "$communication_delay" \
+	    < /dev/null \
+            | tee "$logfile" || true
 
-    mpirun \
-        -np "$ranks" \
-        --hostfile hostfile \
-        "$EXEC" \
-        "$seed" \
-        "$iterations" \
-        "$subiterations" \
-        "$graph_size" \
-        "$graph_file" \
-        "$communication_delay" \
-        | tee "$logfile"
+        time_result=$(grep "Time:" "$logfile" | tail -n1 | sed -E 's/.*Time:[[:space:]]*//' || true)
+        cut_result=$(grep "Final max cut:" "$logfile" | tail -n1 | sed -E 's/.*Final max cut:[[:space:]]*//' || true)
 
-    time_result=$(grep "Time:" "$logfile" | tail -n1 | sed -E 's/.*Time:[[:space:]]*//')
+        rm -f "$logfile"
 
-    rm -f "$logfile" hostfile
-
-    echo "${nodes},${ranks},${seed},${iterations},${subiterations},${graph_size},${graph_file},${communication_delay},${time_result}" >> "$OUTCSV"
-done
+        echo "${nodes},${ranks},${seed},${iterations},${subiterations},${graph_size},${graph_file},${communication_delay},${time_result},${cut_result}" >> "$OUTCSV"
+    done
+} < "$CSV"
 

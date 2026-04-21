@@ -192,7 +192,8 @@ int main(int argc, char *argv[])
   }
 
   if (rank == 0) {
-    printf("Final Max cut = %llu (Thread %d)\n", (unsigned long long) max_cut, max_thread);
+    printf("Final max cut: %llu\n", (unsigned long long) max_cut);
+    printf("(Thread %d)\n", max_thread);
     printf("Time: %f\n", (double)(getticks() - start) / 512e6);
   }
 
