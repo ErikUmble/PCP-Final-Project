@@ -1,5 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=maxcut-seq
+#SBATCH --partition=el8-rpi
 #SBATCH --output=logs/%x-%j.out
 #SBATCH --error=logs/%x-%j.err
 #SBATCH --gres=gpu:4

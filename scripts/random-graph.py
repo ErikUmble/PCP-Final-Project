@@ -15,10 +15,12 @@ def random_graph(n):
 # usage: python random-graph.py n
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        print("Usage: python random-graph.py n")
+    if len(sys.argv) != 3:
+        print("Usage: python random-graph.py [seed] [width]")
         sys.exit(1)
-    n = int(sys.argv[1])
+    seed = int(sys.argv[1])
+    n = int(sys.argv[2])
+    random.seed(seed)
     graph = random_graph(n)
     for row in graph:
         print("".join(str(x) for x in row))

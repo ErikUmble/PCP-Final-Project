@@ -18,3 +18,5 @@ CMakeUserPresets.json
 #cmake-build-*
 max-cut
 *.o
+logs
+core

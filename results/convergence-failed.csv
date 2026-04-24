@@ -1,0 +1,9 @@
+nodes,ranks,seed,iterations,subiterations,graph_size,graph_file,communication_delay,time_result,cut_result
+1,32,1,16,5,256,graphs/power8.0.256.txt,32,,
+1,32,2,16,5,256,graphs/power8.0.256.txt,32,7.885353,8263
+1,32,1,32,5,256,graphs/power8.0.256.txt,32,,
+1,32,2,32,5,256,graphs/power8.0.256.txt,32,,
+1,32,1,64,5,256,graphs/power8.0.256.txt,32,13.682951,8329
+1,32,2,64,5,256,graphs/power8.0.256.txt,32,,
+1,32,1,128,5,256,graphs/power8.0.256.txt,32,23.841109,8352
+1,32,2,128,5,256,graphs/power8.0.256.txt,32,,
