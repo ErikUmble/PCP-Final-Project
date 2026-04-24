@@ -104,6 +104,8 @@ void cudaLandFastCut(int subiterations, uint32_t best_cut, uint32_t graph_bit_si
     s+=(`      break;\n`)
   }
   console.log(s)
+
+  and then had to update 362 to 384 (since it has to be multiples of 64)
   */
 
   switch (graph_bit_size) {
@@ -122,8 +124,8 @@ void cudaLandFastCut(int subiterations, uint32_t best_cut, uint32_t graph_bit_si
     case 256:
       fast_cut<256><<<NUM_THREADS / 256, 256>>>(subiterations, best_cut, graph, state, d_rand_state, d_best_state, d_result);
       break;
-    case 362:
-      fast_cut<362><<<NUM_THREADS / 256, 256>>>(subiterations, best_cut, graph, state, d_rand_state, d_best_state, d_result);
+    case 384:
+      fast_cut<384><<<NUM_THREADS / 256, 256>>>(subiterations, best_cut, graph, state, d_rand_state, d_best_state, d_result);
       break;
     case 512:
       fast_cut<512><<<NUM_THREADS / 256, 256>>>(subiterations, best_cut, graph, state, d_rand_state, d_best_state, d_result);

@@ -192,7 +192,13 @@ int main(int argc, char *argv[])
   }
 
   if (rank == 0) {
+    uint64_t states_checked = npes * iterations * NUM_THREADS * subiterations;
+    uint64_t per_iter = npes * NUM_THREADS * subiterations;
+    uint64_t per_global = npes * NUM_THREADS * subiterations * communication_delay;
     printf("Final max cut: %llu\n", (unsigned long long) max_cut);
+    printf("Total checked: %llu\n", (unsigned long long) states_checked);
+    printf("Per iteration: %llu\n", (unsigned long long) per_iter);
+    printf("Per global sync: %llu\n", (unsigned long long) per_global);
     printf("(Thread %d)\n", max_thread);
     printf("Time: %f\n", (double)(getticks() - start) / 512e6);
   }

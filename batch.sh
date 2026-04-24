@@ -26,7 +26,7 @@ EXEC=$(realpath ./max-cut)
 {
     # header
     read header
-    echo "${header},time_result,cut_result" > "$OUTCSV"
+    echo "${header},checked,per_iter,per_sync,time_result,cut_result" > "$OUTCSV"
 
     while IFS=, read -r \
         nodes ranks seed iterations subiterations graph_size graph_file communication_delay
@@ -49,10 +49,13 @@ EXEC=$(realpath ./max-cut)
 
         time_result=$(grep "Time:" "$logfile" | tail -n1 | sed -E 's/.*Time:[[:space:]]*//' || true)
         cut_result=$(grep "Final max cut:" "$logfile" | tail -n1 | sed -E 's/.*Final max cut:[[:space:]]*//' || true)
+        checked=$(grep "Total checked:" "$logfile" | tail -n1 | sed -E 's/.*Total checked:[[:space:]]*//' || true)
+        per_iter=$(grep "Per iteration:" "$logfile" | tail -n1 | sed -E 's/.*Per iteration:[[:space:]]*//' || true)
+        per_sync=$(grep "Per global sync:" "$logfile" | tail -n1 | sed -E 's/.*Per global sync:[[:space:]]*//' || true)
 
         rm -f "$logfile"
 
-        echo "${nodes},${ranks},${seed},${iterations},${subiterations},${graph_size},${graph_file},${communication_delay},${time_result},${cut_result}" >> "$OUTCSV"
+        echo "${nodes},${ranks},${seed},${iterations},${subiterations},${graph_size},${graph_file},${communication_delay},${checked},${per_iter},${per_sync},${time_result},${cut_result}" >> "$OUTCSV"
     done
 } < "$CSV"
 

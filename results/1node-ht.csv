@@ -1,0 +1,7 @@
+nodes,ranks,seed,iterations,subiterations,graph_size,graph_file,communication_delay,checked,per_iter,per_sync,time_result,cut_result
+1,1,1,32,8,256,graphs/power8.0.256.txt,32,Total checked: 268435456,8388608,268435456,7.809240,8388
+1,2,1,32,4,362,graphs/power8.5.362.txt,16,Total checked: 268435456,8388608,134217728,13.742551,16745
+1,4,1,32,2,512,graphs/power9.0.512.txt,8,Total checked: 268435456,8388608,67108864,20.232809,33256
+1,1,1,32,8,1024,graphs/power10.0.1024.txt,32,Total checked: 268435456,8388608,268435456,29.465165,131755
+1,2,1,16,8,1024,graphs/power10.0.1024.txt,16,Total checked: 268435456,16777216,268435456,34.231909,131667
+1,4,1,8,8,1024,graphs/power10.0.1024.txt,8,Total checked: 268435456,33554432,268435456,37.283841,131667

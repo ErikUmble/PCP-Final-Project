@@ -1,4 +1,2 @@
-nodes,ranks,seed,iterations,subiterations,graph_size,graph_file,communication_delay,time_result
-2,8,1,50,5,100,graphs/g05_100.0.matrix.1430,0,1.369177
-2,8,2,50,5,100,graphs/g05_100.0.matrix.1430,0,1.298951
-2,8,3,50,5,100,graphs/g05_100.0.matrix.1430,0,1.322700
+nodes,ranks,seed,iterations,subiterations,graph_size,graph_file,communication_delay,time_result,cut_result
+2,8,1,512,16,724,graphs/power9.5.724.txt,32,,
