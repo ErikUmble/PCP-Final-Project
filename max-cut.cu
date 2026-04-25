@@ -10,8 +10,8 @@
 
 extern "C" 
 {
-void cudaLandInit(uint64_t seed);
-void cudaLandFastCut(int subiterations, uint32_t best_cut, uint32_t graph_bit_size, graph_var_t *graph, graph_var_t *state, graph_var_t *d_best_state, uint32_t *d_result);
+void cudaLandInit(int gpu, uint64_t seed);
+void cudaLandFastCut(int gpu, int subiterations, uint32_t best_cut, uint32_t graph_bit_size, graph_var_t *graph, graph_var_t *state, graph_var_t *d_best_state, uint32_t *d_result);
 void *cudaLandMalloc(size_t size);
 void cudaLandFree(void *ptr);
 }
@@ -87,39 +87,38 @@ __global__ void setup_kernel(uint64_t seed, curandState *state) {
   curand_init(seed, idx, 0, &state[idx]);
 }
 
-void cudaLandInit(uint64_t seed) {
+void cudaLandInit(int gpu, uint64_t seed) {
+  cudaSetDevice(gpu);
   // Initialize random states for each thread
   cudaMallocManaged(&d_rand_state, NUM_THREADS * sizeof(curandState));
   setup_kernel<<<NUM_THREADS / 256, 256>>>(seed, d_rand_state);
 }
 
-void cudaLandFastCut(int subiterations, uint32_t best_cut, uint32_t graph_bit_size, graph_var_t *graph, graph_var_t *state, graph_var_t *d_best_state, uint32_t *d_result) {
+void cudaLandFastCut(int gpu, int subiterations, uint32_t best_cut, uint32_t graph_bit_size, graph_var_t *graph, graph_var_t *state, graph_var_t *d_best_state, uint32_t *d_result) {
+  cudaSetDevice(gpu);
+
   // Find cut costs
   // Javascript to generate the below
   /* s = ""
   for (let i = 6; i < 15; i += 0.5) {
     size=Math.round(2**i)
+    size=Math.ceil(i/64)*64
     s+=(`    case ${size}:\n`)
     s+=(`      fast_cut<${size}><<<NUM_THREADS / 256, 256>>>(subiterations, best_cut, graph, state, d_rand_state, d_best_state, d_result);\n`)
     s+=(`      break;\n`)
   }
   console.log(s)
-
-  and then had to update 362 to 384 (since it has to be multiples of 64)
   */
 
   switch (graph_bit_size) {
     case 64:
       fast_cut<64><<<NUM_THREADS / 256, 256>>>(subiterations, best_cut, graph, state, d_rand_state, d_best_state, d_result);
       break;
-    case 91:
-      fast_cut<91><<<NUM_THREADS / 256, 256>>>(subiterations, best_cut, graph, state, d_rand_state, d_best_state, d_result);
-      break;
     case 128:
       fast_cut<128><<<NUM_THREADS / 256, 256>>>(subiterations, best_cut, graph, state, d_rand_state, d_best_state, d_result);
       break;
-    case 181:
-      fast_cut<181><<<NUM_THREADS / 256, 256>>>(subiterations, best_cut, graph, state, d_rand_state, d_best_state, d_result);
+    case 192:
+      fast_cut<192><<<NUM_THREADS / 256, 256>>>(subiterations, best_cut, graph, state, d_rand_state, d_best_state, d_result);
       break;
     case 256:
       fast_cut<256><<<NUM_THREADS / 256, 256>>>(subiterations, best_cut, graph, state, d_rand_state, d_best_state, d_result);
@@ -130,39 +129,39 @@ void cudaLandFastCut(int subiterations, uint32_t best_cut, uint32_t graph_bit_si
     case 512:
       fast_cut<512><<<NUM_THREADS / 256, 256>>>(subiterations, best_cut, graph, state, d_rand_state, d_best_state, d_result);
       break;
-    case 724:
-      fast_cut<724><<<NUM_THREADS / 256, 256>>>(subiterations, best_cut, graph, state, d_rand_state, d_best_state, d_result);
+    case 768:
+      fast_cut<768><<<NUM_THREADS / 256, 256>>>(subiterations, best_cut, graph, state, d_rand_state, d_best_state, d_result);
       break;
     case 1024:
       fast_cut<1024><<<NUM_THREADS / 256, 256>>>(subiterations, best_cut, graph, state, d_rand_state, d_best_state, d_result);
       break;
-    case 1448:
-      fast_cut<1448><<<NUM_THREADS / 256, 256>>>(subiterations, best_cut, graph, state, d_rand_state, d_best_state, d_result);
+    case 1472:
+      fast_cut<1472><<<NUM_THREADS / 256, 256>>>(subiterations, best_cut, graph, state, d_rand_state, d_best_state, d_result);
       break;
     case 2048:
       fast_cut<2048><<<NUM_THREADS / 256, 256>>>(subiterations, best_cut, graph, state, d_rand_state, d_best_state, d_result);
       break;
-    case 2896:
-      fast_cut<2896><<<NUM_THREADS / 256, 256>>>(subiterations, best_cut, graph, state, d_rand_state, d_best_state, d_result);
+    case 2944:
+      fast_cut<2944><<<NUM_THREADS / 256, 256>>>(subiterations, best_cut, graph, state, d_rand_state, d_best_state, d_result);
       break;
     case 4096:
       fast_cut<4096><<<NUM_THREADS / 256, 256>>>(subiterations, best_cut, graph, state, d_rand_state, d_best_state, d_result);
       break;
-    case 5793:
-      fast_cut<5793><<<NUM_THREADS / 256, 256>>>(subiterations, best_cut, graph, state, d_rand_state, d_best_state, d_result);
+    case 5824:
+      fast_cut<5824><<<NUM_THREADS / 256, 256>>>(subiterations, best_cut, graph, state, d_rand_state, d_best_state, d_result);
       break;
     case 8192:
       fast_cut<8192><<<NUM_THREADS / 256, 256>>>(subiterations, best_cut, graph, state, d_rand_state, d_best_state, d_result);
       break;
-    case 11585:
-      fast_cut<11585><<<NUM_THREADS / 256, 256>>>(subiterations, best_cut, graph, state, d_rand_state, d_best_state, d_result);
+    case 11648:
+      fast_cut<11648><<<NUM_THREADS / 256, 256>>>(subiterations, best_cut, graph, state, d_rand_state, d_best_state, d_result);
       break;
     case 16384:
       fast_cut<16384><<<NUM_THREADS / 256, 256>>>(subiterations, best_cut, graph, state, d_rand_state, d_best_state, d_result);
       break;
-    case 23170:
+    case 23232:
+      fast_cut<23232><<<NUM_THREADS / 256, 256>>>(subiterations, best_cut, graph, state, d_rand_state, d_best_state, d_result);
       break;
-      fast_cut<23170><<<NUM_THREADS / 256, 256>>>(subiterations, best_cut, graph, state, d_rand_state, d_best_state, d_result);
     default:
       printf("Error unsupported graph bit size: %d", graph_bit_size);
       exit(1);

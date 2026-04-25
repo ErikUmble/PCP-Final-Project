@@ -9,8 +9,8 @@
 
 #include "max-cut.h"
 
-extern void cudaLandFastCut(int subiterations, uint32_t best_cut, uint32_t graph_bit_size, graph_var_t *graph, graph_var_t *state, graph_var_t *d_best_state, uint32_t *d_result);
-extern void cudaLandInit(uint64_t seed);
+extern void cudaLandFastCut(int gpu, int subiterations, uint32_t best_cut, uint32_t graph_bit_size, graph_var_t *graph, graph_var_t *state, graph_var_t *d_best_state, uint32_t *d_result);
+extern void cudaLandInit(int gpu, uint64_t seed);
 extern void* cudaLandMalloc( size_t size );
 extern void cudaLandFree( void *ptr );
 
@@ -88,6 +88,8 @@ int main(int argc, char *argv[])
   graph_file = argv[5];
   sscanf(argv[6], "%u", &communication_delay);
 
+  int device = rank % 4; // 4 GPUs per node
+
   // Use a different random state offset for each process to ensure unique random sequences across them
   rng_state = seed + rank;
   rng_state += randomu64();
@@ -132,7 +134,7 @@ int main(int argc, char *argv[])
     }
   }
 
-  cudaLandInit(randomu64());
+  cudaLandInit(device, randomu64());
 
   // initialize best state to all 0s
   graph_var_t *d_best_state;
@@ -150,7 +152,7 @@ int main(int argc, char *argv[])
   } local_best, global_best;
   for (int i = 0; i < iterations; i++) {
     // Find cut costs
-    cudaLandFastCut(subiterations, max_cut, graph_bit_size, graph, state, d_best_state, d_result);
+    cudaLandFastCut(device, subiterations, max_cut, graph_bit_size, graph, state, d_best_state, d_result);
 
     // Find max
     uint32_t iteration_max_cut = 0;

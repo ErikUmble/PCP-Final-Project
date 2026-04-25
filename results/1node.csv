@@ -1,7 +1,7 @@
-nodes,ranks,seed,iterations,subiterations,graph_size,graph_file,communication_delay,time_result,cut_result
-1,1,1,512,16,256,graphs/power8.0.256.txt,32,2.298078,8348
-1,2,1,512,16,362,graphs/power8.5.362.txt,32,,
-1,4,1,512,16,512,graphs/power9.0.512.txt,32,20.532582,33191
-1,1,1,512,16,1024,graphs/power10.0.1024.txt,32,13.999543,131635
-1,2,1,512,16,1024,graphs/power10.0.1024.txt,32,114.489321,131730
-1,4,1,512,16,1024,graphs/power10.0.1024.txt,32,58.341825,131745
+nodes,ranks,seed,iterations,subiterations,graph_size,graph_file,communication_delay,checked,per_iter,per_sync,time_result,cut_result
+1,1,1,128,1,256,graphs/power8.0.256.txt,32,134217728,1048576,33554432,4.736083,8381
+1,2,1,64,1,362,graphs/power8.5.362.txt,16,134217728,2097152,33554432,4.149184,16744
+1,4,1,32,1,512,graphs/power9.0.512.txt,8,134217728,4194304,33554432,3.588859,33272
+1,1,1,128,1,1024,graphs/power10.0.1024.txt,32,134217728,1048576,33554432,18.952974,131804
+1,2,1,64,1,1024,graphs/power10.0.1024.txt,16,134217728,2097152,33554432,10.256078,131786
+1,4,1,32,1,1024,graphs/power10.0.1024.txt,8,134217728,4194304,33554432,6.352666,131740
