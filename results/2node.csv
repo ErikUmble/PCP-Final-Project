@@ -1,3 +1,3 @@
 nodes,ranks,seed,iterations,subiterations,graph_size,graph_file,communication_delay,checked,per_iter,per_sync,time_result,cut_result
-2,8,1,16,1,724,graphs/power9.5.724.txt,4,134217728,8388608,33554432,6.764258,66121
-2,8,1,16,1,1024,graphs/power10.0.1024.txt,4,134217728,8388608,33554432,8.731109,131795
+2,8,1,16,1,724,graphs/power9.5.724.txt,4,134217728,8388608,33554432,3.264605,66121
+2,8,1,16,1,1024,graphs/power10.0.1024.txt,4,134217728,8388608,33554432,4.229819,131795

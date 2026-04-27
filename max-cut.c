@@ -69,6 +69,14 @@ int main(int argc, char *argv[])
   int npes, rank;
   MPI_Comm_size(MPI_COMM_WORLD, &npes);
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+  MPI_Comm local_comm;
+  MPI_Comm_split_type(MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, 0,
+		                      MPI_INFO_NULL, &local_comm);
+
+  int local_rank;
+  MPI_Comm_rank(local_comm, &local_rank);
+
   MPI_Barrier(MPI_COMM_WORLD);
 
   if (argc != 7) {
@@ -88,7 +96,7 @@ int main(int argc, char *argv[])
   graph_file = argv[5];
   sscanf(argv[6], "%u", &communication_delay);
 
-  int device = rank % 4; // 4 GPUs per node
+  int device = local_rank; // The local rank should range from 0 to 3
 
   // Use a different random state offset for each process to ensure unique random sequences across them
   rng_state = seed + rank;

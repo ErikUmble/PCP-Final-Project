@@ -4,6 +4,7 @@
 #SBATCH --output=logs/%x-%j.out
 #SBATCH --error=logs/%x-%j.err
 #SBATCH --gres=gpu:4
+#SBATCH --ntasks-per-node=4
 
 set -euo pipefail
 set -x
