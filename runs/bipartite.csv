@@ -1,0 +1,16 @@
+nodes,ranks,seed,iterations,subiterations,graph_size,graph_file,communication_delay
+1,4,1,32,8,256,graphs/bipartite8.256.256.txt,4
+1,4,1,32,8,256,graphs/bipartite8.256.512.txt,4
+1,4,1,32,8,256,graphs/bipartite8.256.1024.txt,4
+1,4,1,32,8,256,graphs/bipartite8.256.2048.txt,4
+1,4,1,32,8,256,graphs/bipartite8.256.4096.txt,4
+1,4,1,32,8,512,graphs/bipartite9.512.256.txt,4
+1,4,1,32,8,512,graphs/bipartite9.512.512.txt,4
+1,4,1,32,8,512,graphs/bipartite9.512.1024.txt,4
+1,4,1,32,8,512,graphs/bipartite9.512.2048.txt,4
+1,4,1,32,8,512,graphs/bipartite9.512.4096.txt,4
+1,4,1,32,8,1024,graphs/bipartite10.1024.256.txt,4
+1,4,1,32,8,1024,graphs/bipartite10.1024.512.txt,4
+1,4,1,32,8,1024,graphs/bipartite10.1024.1024.txt,4
+1,4,1,32,8,1024,graphs/bipartite10.1024.2048.txt,4
+1,4,1,32,8,1024,graphs/bipartite10.1024.4096.txt,4
