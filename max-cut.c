@@ -9,7 +9,7 @@
 
 #include "max-cut.h"
 
-extern void cudaLandFastCut(int gpu, int subiterations, uint32_t best_cut, uint32_t graph_bit_size, graph_var_t *graph, graph_var_t *state, graph_var_t *d_best_state, uint32_t *d_result);
+extern void cudaLandFastCut(int gpu, int subiterations, uint32_t best_cut, uint32_t graph_bit_size, graph_var_t *graph, graph_var_t *out_states, float_t *qstate, uint32_t *max_cuts);
 extern void cudaLandInit(int gpu, uint64_t seed);
 extern void* cudaLandMalloc( size_t size );
 extern void cudaLandFree( void *ptr );
@@ -60,7 +60,7 @@ int main(int argc, char *argv[])
   int seed, iterations, subiterations, graph_org_bit_size, communication_delay;
   char *graph_file;
   graph_var_t *graph;
-  graph_var_t *state;
+  graph_var_t *out_state;
 
 
   // initialize MPI
@@ -106,7 +106,7 @@ int main(int argc, char *argv[])
   int graph_int_size = graph_bit_size / GRAPH_VAR_BITSIZE;
 
   graph = cudaLandMalloc(graph_bit_size * graph_int_size * sizeof(graph_var_t));
-  state = cudaLandMalloc(NUM_THREADS * graph_int_size * sizeof(graph_var_t));
+  out_state = cudaLandMalloc(NUM_THREADS * graph_int_size * sizeof(graph_var_t));
   memset(graph, 0, graph_bit_size * graph_int_size * sizeof(graph_var_t));
 
   // Root reads in graph file (adjaceny matrix ascii 0s and 1s)
@@ -135,22 +135,17 @@ int main(int argc, char *argv[])
   // Distribute graph to all processes
   MPI_Bcast(graph, graph_bit_size * graph_int_size, MPI_UINT64_T, 0, MPI_COMM_WORLD);
 
-  // Initialize the state randomly
-  for (int i = 0; i < NUM_THREADS; i++) {
-    for (int j = 0; j < graph_int_size; j++) {
-      state[i * graph_int_size + j] = randomu64();
-    }
+  float_t *qstate;
+  qstate = cudaLandMalloc(graph_bit_size * sizeof(float_t));
+  // Initialize the state to 50% for all vertices
+  for (int j = 0; j < graph_bit_size; j++) {
+    qstate[j] = 0.5;
   }
 
   cudaLandInit(device, randomu64());
 
-  // initialize best state to all 0s
-  graph_var_t *d_best_state;
-  d_best_state = cudaLandMalloc(graph_int_size * sizeof(graph_var_t));
-  memset(d_best_state, 0, graph_int_size * sizeof(graph_var_t));
-
-  uint32_t *d_result;
-  d_result = cudaLandMalloc(NUM_THREADS * sizeof(uint32_t));
+  uint32_t *max_cuts;
+  max_cuts = cudaLandMalloc(NUM_THREADS * sizeof(uint32_t));
 
   uint32_t max_cut = 0;
   uint32_t max_thread = 0;
@@ -160,23 +155,48 @@ int main(int argc, char *argv[])
   } local_best, global_best;
   for (int i = 0; i < iterations; i++) {
     // Find cut costs
-    cudaLandFastCut(device, subiterations, max_cut, graph_bit_size, graph, state, d_best_state, d_result);
+    cudaLandFastCut(device, subiterations, max_cut, graph_bit_size, graph, out_state, qstate, max_cuts);
 
     // Find max
+    uint32_t max_k_cuts[5];
+    uint32_t max_k_threads[5];
     uint32_t iteration_max_cut = 0;
-    max_thread = 0;
     for (int j = 0; j < NUM_THREADS; j++) {
-      if (d_result[j] > iteration_max_cut) {
-        iteration_max_cut = d_result[j];
-        max_thread = j;
+      if (max_cuts[j] > iteration_max_cut) {
+        uint32_t min = 100000000;
+        for (int k = 0; k < 5; k++) {
+          if (max_k_cuts[k] < min) {
+            min = max_k_cuts[k];
+            max_k_cuts[k] = max_cuts[j];
+            max_k_threads[k] = j;
+          }
+        }
       }
     }
 
-    // Update local best state only when this iteration improves this rank's best-known cut.
-    if (iteration_max_cut > max_cut) {
-      max_cut = iteration_max_cut;
+    // Update local qstate with best from top k threads
+    // If the thread has a 1 in the state make it more likely to be a 1, if it has a 0 make it more likely to be a 0
+    for (int k = 0; k < 5; k++) {
+      int thread = max_k_threads[k];
       for (int j = 0; j < graph_int_size; j++) {
-        d_best_state[j] = state[max_thread * graph_int_size + j];
+        graph_var_t bits = out_state[thread * graph_int_size + j];
+        for (int b = 0; b < GRAPH_VAR_BITSIZE; b++) {
+          int idx = j * GRAPH_VAR_BITSIZE + b;
+          if (idx >= graph_org_bit_size) {
+            break;
+          }
+          if (bits & (1ULL << b)) {
+            qstate[idx] += 0.01;
+            if (qstate[idx] > 0.99) {
+              qstate[idx] = 0.99;
+            }
+          } else {
+            qstate[idx] -= 0.01;
+            if (qstate[idx] < 0.01) {
+              qstate[idx] = 0.01;
+            }
+          }
+        }
       }
     }
 
@@ -193,7 +213,7 @@ int main(int argc, char *argv[])
       }
 
       // broadcast the best state from the best rank to all processes
-      MPI_Bcast(d_best_state, graph_int_size, MPI_UINT64_T, global_best.rank, MPI_COMM_WORLD);
+      MPI_Bcast(qstate, graph_bit_size, MPI_FLOAT_T, global_best.rank, MPI_COMM_WORLD);
     }
 
     if (i % (iterations/50) == 0 && rank == 0) {
@@ -216,8 +236,8 @@ int main(int argc, char *argv[])
   // Cleanup
   cudaLandFree(graph);
   cudaLandFree(state);
-  cudaLandFree(d_best_state);
-  cudaLandFree(d_result);
+  cudaLandFree(qstate);
+  cudaLandFree(max_cuts);
 
   MPI_Finalize();
 
