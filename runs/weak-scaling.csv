@@ -1,0 +1,6 @@
+nodes,ranks,seed,iterations,subiterations,graph_size,graph_file,communication_delay
+1,1,1,256,1,1024,graphs/power10.0.1024.txt,16
+1,2,1,128,1,2048,graphs/power11.0.2048.txt,8
+1,4,1,64,1,4096,graphs/power12.0.4096.txt,4
+2,8,1,32,1,8192,graphs/power13.0.8192.txt,2
+4,16,1,16,1,16384,graphs/power14.0.16384.txt,1
