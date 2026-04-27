@@ -99,7 +99,55 @@ void cudaLandFastCut(int gpu, int subiterations, uint32_t best_cut, uint32_t gra
 
   switch (graph_bit_size) {
     case 64:
-      fast_cut<64><<<NUM_THREADS / 256, 256>>>(subiterations, best_cut, graph, out_states, d_rand_state, qstate, max_cuts);
+      fast_cut<64><<<NUM_THREADS / 256, 256>>>(subiterations, best_cut, graph, state, d_rand_state, d_best_state, d_result);
+      break;
+    case 128:
+      fast_cut<128><<<NUM_THREADS / 256, 256>>>(subiterations, best_cut, graph, state, d_rand_state, d_best_state, d_result);
+      break;
+    case 192:
+      fast_cut<192><<<NUM_THREADS / 256, 256>>>(subiterations, best_cut, graph, state, d_rand_state, d_best_state, d_result);
+      break;
+    case 256:
+      fast_cut<256><<<NUM_THREADS / 256, 256>>>(subiterations, best_cut, graph, state, d_rand_state, d_best_state, d_result);
+      break;
+    case 384:
+      fast_cut<384><<<NUM_THREADS / 256, 256>>>(subiterations, best_cut, graph, state, d_rand_state, d_best_state, d_result);
+      break;
+    case 512:
+      fast_cut<512><<<NUM_THREADS / 256, 256>>>(subiterations, best_cut, graph, state, d_rand_state, d_best_state, d_result);
+      break;
+    case 768:
+      fast_cut<768><<<NUM_THREADS / 256, 256>>>(subiterations, best_cut, graph, state, d_rand_state, d_best_state, d_result);
+      break;
+    case 832:
+      fast_cut<832><<<NUM_THREADS / 256, 256>>>(subiterations, best_cut, graph, state, d_rand_state, d_best_state, d_result);
+      break;
+    case 1024:
+      fast_cut<1024><<<NUM_THREADS / 256, 256>>>(subiterations, best_cut, graph, state, d_rand_state, d_best_state, d_result);
+      break;
+    case 1472:
+      fast_cut<1472><<<NUM_THREADS / 256, 256>>>(subiterations, best_cut, graph, state, d_rand_state, d_best_state, d_result);
+      break;
+    case 2048:
+      fast_cut<2048><<<NUM_THREADS / 256, 256>>>(subiterations, best_cut, graph, state, d_rand_state, d_best_state, d_result);
+      break;
+    case 2944:
+      fast_cut<2944><<<NUM_THREADS / 256, 256>>>(subiterations, best_cut, graph, state, d_rand_state, d_best_state, d_result);
+      break;
+    case 4096:
+      fast_cut<4096><<<NUM_THREADS / 256, 256>>>(subiterations, best_cut, graph, state, d_rand_state, d_best_state, d_result);
+      break;
+    case 5824:
+      fast_cut<5824><<<NUM_THREADS / 256, 256>>>(subiterations, best_cut, graph, state, d_rand_state, d_best_state, d_result);
+      break;
+    case 8192:
+      fast_cut<8192><<<NUM_THREADS / 256, 256>>>(subiterations, best_cut, graph, state, d_rand_state, d_best_state, d_result);
+      break;
+    case 11648:
+      fast_cut<11648><<<NUM_THREADS / 256, 256>>>(subiterations, best_cut, graph, state, d_rand_state, d_best_state, d_result);
+      break;
+    case 16384:
+      fast_cut<16384><<<NUM_THREADS / 256, 256>>>(subiterations, best_cut, graph, state, d_rand_state, d_best_state, d_result);
       break;
     case 832:
       fast_cut<832><<<NUM_THREADS / 256, 256>>>(subiterations, best_cut, graph, out_states, d_rand_state, qstate, max_cuts);
