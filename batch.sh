@@ -9,15 +9,19 @@
 set -euo pipefail
 set -x
 
-if [ "$#" -ne 2 ]; then
-    echo "Usage: sbatch -N <max_nodes> $0 <runs.csv> <results.csv>"
-    exit 1
+if [ "$#" -lt 1 ] || [ "$#" -gt 2 ]; then
+    echo "Usage: sbatch -N <max_nodes> $0 <runs.csv> [results.csv]"
+	exit 1
 fi
+
+CSV="$1"
+OUTCSV="${2:-results/$(basename "$CSV")}"
 
 module load xl_r spectrum-mpi cuda
 
-CSV="$1"
-OUTCSV="$2"
+if [ -f "$OUTCSV" ]; then
+    mv "$OUTCSV" "$OUTCSV.bak"
+fi
 
 mkdir -p logs
 
