@@ -24,7 +24,7 @@ __global__ void fast_cut(int iterations, uint32_t best_cut, graph_var_t *graph, 
   // Get our portion of state
   uint32_t idx = blockIdx.x * blockDim.x + threadIdx.x;
   const uint32_t graph_int_size = graph_bit_size / GRAPH_VAR_BITSIZE;
-  uint32_t our_best_cut = best_cut;
+  uint32_t our_best_cut = 0;
   graph_var_t *local_out_state = out_states + idx * graph_int_size;
   graph_var_t new_state[graph_int_size];
 
@@ -148,6 +148,9 @@ void cudaLandFastCut(int gpu, int subiterations, uint32_t best_cut, uint32_t gra
       break;
     case 16384:
       fast_cut<16384><<<NUM_THREADS / 256, 256>>>(subiterations, best_cut, graph, state, d_rand_state, d_best_state, d_result);
+      break;
+    case 256:
+      fast_cut<256><<<NUM_THREADS / 256, 256>>>(subiterations, best_cut, graph, out_states, d_rand_state, qstate, max_cuts);
       break;
     case 832:
       fast_cut<832><<<NUM_THREADS / 256, 256>>>(subiterations, best_cut, graph, out_states, d_rand_state, qstate, max_cuts);

@@ -158,46 +158,71 @@ int main(int argc, char *argv[])
     cudaLandFastCut(device, subiterations, max_cut, graph_bit_size, graph, out_state, qstate, max_cuts);
 
     // Find max
-    uint32_t max_k_cuts[5];
-    uint32_t max_k_threads[5];
+    const int K = 16;
+    uint32_t max_k_cuts[K];
+    uint32_t max_k_threads[K];
     uint32_t iteration_max_cut = 0;
-    for (int j = 0; j < NUM_THREADS; j++) {
-      if (max_cuts[j] > iteration_max_cut) {
-        uint32_t min = 100000000;
-        for (int k = 0; k < 5; k++) {
-          if (max_k_cuts[k] < min) {
-            min = max_k_cuts[k];
-            max_k_cuts[k] = max_cuts[j];
-            max_k_threads[k] = j;
-          }
-        }
+    uint32_t iteration_max_thread = 0;
+    for (int j = 0; j < 16; j++) {
+      max_k_cuts[j] = max_cuts[j];
+      max_k_threads[j] = j;
+      if (max_k_cuts[j] > iteration_max_cut) {
+        iteration_max_cut = max_k_cuts[j];
+        iteration_max_thread = j;
       }
     }
 
-    // Update local qstate with best from top k threads
-    // If the thread has a 1 in the state make it more likely to be a 1, if it has a 0 make it more likely to be a 0
-    for (int k = 0; k < 5; k++) {
-      int thread = max_k_threads[k];
-      for (int j = 0; j < graph_int_size; j++) {
-        graph_var_t bits = out_state[thread * graph_int_size + j];
-        for (int b = 0; b < GRAPH_VAR_BITSIZE; b++) {
-          int idx = j * GRAPH_VAR_BITSIZE + b;
-          if (idx >= graph_org_bit_size) {
-            break;
-          }
-          if (bits & (1ULL << b)) {
-            qstate[idx] += 0.01;
-            if (qstate[idx] > 0.99) {
-              qstate[idx] = 0.99;
-            }
-          } else {
-            qstate[idx] -= 0.01;
-            if (qstate[idx] < 0.01) {
-              qstate[idx] = 0.01;
-            }
-          }
+    for (int j = 0; j < NUM_THREADS; j++) {
+      // find index of smallest in current top-K
+      int min_idx = 0;
+      for (int k = 1; k < K; k++) {
+        if (max_k_cuts[k] < max_k_cuts[min_idx]) {
+          min_idx = k;
         }
       }
+
+      // replace if better
+      if (max_cuts[j] > max_k_cuts[min_idx]) {
+        max_k_cuts[min_idx] = max_cuts[j];
+        max_k_threads[min_idx] = j;
+      }
+
+      // track global best
+      if (max_cuts[j] > iteration_max_cut) {
+        iteration_max_cut = max_cuts[j];
+        iteration_max_thread = j;
+      }
+    }
+
+    if (iteration_max_cut > max_cut) {
+      max_cut = iteration_max_cut;
+      max_thread = iteration_max_thread;
+    }
+
+    // Update local qstate with best from top k threads
+    const float alpha = 0.1f;   // learning rate
+
+    for (int j = 0; j < graph_bit_size; j++) {
+      float sum = 0.0f;
+
+      int word = j / GRAPH_VAR_BITSIZE;
+      int bit  = j % GRAPH_VAR_BITSIZE;
+
+      // accumulate number of 1s across top-K threads
+      for (int k = 0; k < K; k++) {
+          int thread = max_k_threads[k];
+          graph_var_t v = out_state[thread * graph_int_size + word];
+          sum += (float)((v >> bit) & 1ULL);
+      }
+
+      float mean = sum / (float)K;
+
+      // smooth update toward mean
+      qstate[j] = (1.0f - alpha) * qstate[j] + alpha * mean;
+
+      // optional: loose clamp to avoid exact 0/1 collapse too early
+      if (qstate[j] < 0.01f) qstate[j] = 0.01f;
+      if (qstate[j] > 0.99f) qstate[j] = 0.99f;
     }
 
     // every communication_delay iterations, broadcast the best state to all processes to synchronize the best state across
@@ -213,11 +238,17 @@ int main(int argc, char *argv[])
       }
 
       // broadcast the best state from the best rank to all processes
-      MPI_Bcast(qstate, graph_bit_size, MPI_FLOAT_T, global_best.rank, MPI_COMM_WORLD);
+      MPI_Bcast(qstate, graph_bit_size, MPI_FLOAT, global_best.rank, MPI_COMM_WORLD);
     }
 
     if (i % (iterations/50) == 0 && rank == 0) {
       printf("Iteration %d: Best cut so far = %llu\n", i, (unsigned long long) max_cut);
+      // output qstate
+      printf("Qstate: ");
+      for (int j = 0; j < graph_bit_size && j < 32; j++) {
+        printf("%0.2f ", qstate[j]);
+      }
+      printf("\n");
     }
   }
 
@@ -235,7 +266,7 @@ int main(int argc, char *argv[])
 
   // Cleanup
   cudaLandFree(graph);
-  cudaLandFree(state);
+  cudaLandFree(out_state);
   cudaLandFree(qstate);
   cudaLandFree(max_cuts);
 
