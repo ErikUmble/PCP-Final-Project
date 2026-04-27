@@ -89,7 +89,7 @@ void cudaLandFastCut(int gpu, int subiterations, uint32_t best_cut, uint32_t gra
   /* s = ""
   for (let i = 6; i < 15; i += 0.5) {
     size=Math.round(2**i)
-    size=Math.ceil(i/64)*64
+    size=Math.ceil(size/64)*64
     s+=(`    case ${size}:\n`)
     s+=(`      fast_cut<${size}><<<NUM_THREADS / 256, 256>>>(subiterations, best_cut, graph, out_states, d_rand_state, qstate, max_cuts);\n`)
     s+=(`      break;\n`)
@@ -98,15 +98,64 @@ void cudaLandFastCut(int gpu, int subiterations, uint32_t best_cut, uint32_t gra
   */
 
   switch (graph_bit_size) {
-	  case 256:
+    case 64:
+      fast_cut<64><<<NUM_THREADS / 256, 256>>>(subiterations, best_cut, graph, out_states, d_rand_state, qstate, max_cuts);
+      break;
+    case 128:
+      fast_cut<128><<<NUM_THREADS / 256, 256>>>(subiterations, best_cut, graph, out_states, d_rand_state, qstate, max_cuts);
+      break;
+    case 192:
+      fast_cut<192><<<NUM_THREADS / 256, 256>>>(subiterations, best_cut, graph, out_states, d_rand_state, qstate, max_cuts);
+      break;
+    case 256:
       fast_cut<256><<<NUM_THREADS / 256, 256>>>(subiterations, best_cut, graph, out_states, d_rand_state, qstate, max_cuts);
       break;
+    case 384:
+      fast_cut<384><<<NUM_THREADS / 256, 256>>>(subiterations, best_cut, graph, out_states, d_rand_state, qstate, max_cuts);
+      break;
+    case 512:
+      fast_cut<512><<<NUM_THREADS / 256, 256>>>(subiterations, best_cut, graph, out_states, d_rand_state, qstate, max_cuts);
+      break;
+    case 768:
+      fast_cut<768><<<NUM_THREADS / 256, 256>>>(subiterations, best_cut, graph, out_states, d_rand_state, qstate, max_cuts);
+      break;
+    case 1024:
+      fast_cut<1024><<<NUM_THREADS / 256, 256>>>(subiterations, best_cut, graph, out_states, d_rand_state, qstate, max_cuts);
+      break;
+    case 1472:
+      fast_cut<1472><<<NUM_THREADS / 256, 256>>>(subiterations, best_cut, graph, out_states, d_rand_state, qstate, max_cuts);
+      break;
+    case 2048:
+      fast_cut<2048><<<NUM_THREADS / 256, 256>>>(subiterations, best_cut, graph, out_states, d_rand_state, qstate, max_cuts);
+      break;
+    case 2944:
+      fast_cut<2944><<<NUM_THREADS / 256, 256>>>(subiterations, best_cut, graph, out_states, d_rand_state, qstate, max_cuts);
+      break;
+    case 4096:
+      fast_cut<4096><<<NUM_THREADS / 256, 256>>>(subiterations, best_cut, graph, out_states, d_rand_state, qstate, max_cuts);
+      break;
+    case 5824:
+      fast_cut<5824><<<NUM_THREADS / 256, 256>>>(subiterations, best_cut, graph, out_states, d_rand_state, qstate, max_cuts);
+      break;
+    case 8192:
+      fast_cut<8192><<<NUM_THREADS / 256, 256>>>(subiterations, best_cut, graph, out_states, d_rand_state, qstate, max_cuts);
+      break;
+    case 11648:
+      fast_cut<11648><<<NUM_THREADS / 256, 256>>>(subiterations, best_cut, graph, out_states, d_rand_state, qstate, max_cuts);
+      break;
+    case 16384:
+      fast_cut<16384><<<NUM_THREADS / 256, 256>>>(subiterations, best_cut, graph, out_states, d_rand_state, qstate, max_cuts);
+      break;
+    case 23232:
+      fast_cut<23232><<<NUM_THREADS / 256, 256>>>(subiterations, best_cut, graph, out_states, d_rand_state, qstate, max_cuts);
+      break;
+    //G1
     case 832:
       fast_cut<832><<<NUM_THREADS / 256, 256>>>(subiterations, best_cut, graph, out_states, d_rand_state, qstate, max_cuts);
       break;
-	  default:
-      printf("Error unsupported graph bit size: %d", graph_bit_size);
-      exit(1);
+    default:
+        printf("Error unsupported graph bit size: %d", graph_bit_size);
+        exit(1);
   }
   cudaDeviceSynchronize();
 }
