@@ -253,15 +253,20 @@ int main(int argc, char *argv[])
   }
 
   if (rank == 0) {
-    uint64_t states_checked = npes * iterations * NUM_THREADS * subiterations;
-    uint64_t per_iter = npes * NUM_THREADS * subiterations;
-    uint64_t per_global = npes * NUM_THREADS * subiterations * communication_delay;
+    uint64_t states_checked = (uint64_t)npes * (uint64_t)iterations * (uint64_t)NUM_THREADS * (uint64_t)subiterations;
+    uint64_t per_iter = (uint64_t)npes * (uint64_t)NUM_THREADS * (uint64_t)subiterations;
+    uint64_t per_global = (uint64_t)npes * (uint64_t)NUM_THREADS * (uint64_t)subiterations * (uint64_t)communication_delay;
     printf("Final max cut: %llu\n", (unsigned long long) max_cut);
     printf("Total checked: %llu\n", (unsigned long long) states_checked);
     printf("Per iteration: %llu\n", (unsigned long long) per_iter);
     printf("Per global sync: %llu\n", (unsigned long long) per_global);
     printf("(Thread %d)\n", max_thread);
     printf("Time: %f\n", (double)(getticks() - start) / 512e6);
+    printf("Final Qstate:\n");
+    for (int j = 0; j < graph_bit_size; j++) {
+      printf("%0.5f ", qstate[j]);
+    }
+    printf("\n");
   }
 
   // Cleanup

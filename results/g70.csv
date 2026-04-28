@@ -1,0 +1,2 @@
+nodes,ranks,seed,iterations,subiterations,graph_size,graph_file,communication_delay,checked,per_iter,per_sync,time_result,cut_result
+4,32,1,128,4,10000,graphs/G70.10000.txt,4,,,,,

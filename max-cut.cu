@@ -153,6 +153,10 @@ void cudaLandFastCut(int gpu, int subiterations, uint32_t best_cut, uint32_t gra
     case 832:
       fast_cut<832><<<NUM_THREADS / 256, 256>>>(subiterations, best_cut, graph, out_states, d_rand_state, qstate, max_cuts);
       break;
+    //G70
+    case 10048:
+      fast_cut<10048><<<NUM_THREADS / 256, 256>>>(subiterations, best_cut, graph, out_states, d_rand_state, qstate, max_cuts);
+      break;
     default:
         printf("Error unsupported graph bit size: %d", graph_bit_size);
         exit(1);
