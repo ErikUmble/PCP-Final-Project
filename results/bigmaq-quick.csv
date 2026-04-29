@@ -1,0 +1,3 @@
+nodes,ranks,seed,iterations,subiterations,graph_size,graph_file,communication_delay,checked,per_iter,per_sync,time_result,cut_result
+1,4,1,128,4,100,graphs/g05_100.0.matrix.1430,4,2147483648,16777216,67108864,9.084166,1427
+1,4,1,128,4,60,graphs/g05_60.0.matrix.536,4,2147483648,16777216,67108864,6.093474,536

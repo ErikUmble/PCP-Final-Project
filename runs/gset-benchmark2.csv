@@ -1,0 +1,6 @@
+nodes,ranks,seed,iterations,subiterations,graph_size,graph_file,communication_delay
+1,4,1,256,4,5000,graphs/G55.5000.txt,1
+1,4,1,256,4,5000,graphs/G58.5000.txt,1
+1,4,1,256,4,7000,graphs/G60.7000.txt,1
+1,4,1,256,4,7000,graphs/G63.7000.txt,1
+1,4,1,256,4,10000,graphs/G70.10000.txt,1

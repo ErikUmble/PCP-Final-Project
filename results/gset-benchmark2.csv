@@ -1,0 +1,2 @@
+nodes,ranks,seed,iterations,subiterations,graph_size,graph_file,communication_delay,checked,per_iter,per_sync,time_result,cut_result
+1,4,1,256,4,5000,graphs/G55.5000.txt,1,4294967296,16777216,16777216,4049.843791,8697
