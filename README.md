@@ -2,13 +2,24 @@
 
 ## Building
 
-`make max-cut`
+We use a Makefile.
+
+```bash
+module load xl_r spectrum-mpi cuda
+make max-cut
+```
+
+This will build the `./max-cut` executable.
 
 ## Running
 
-`sbatch -N [nodes] -t 5 --partition=el8-rpi ./batch.sh ./runs/[input].csv ./results/[output].csv`
+You can run an experiment csv file using our batch script.
 
-Example: `sbatch -N 1 -t 5 --partition=el8-rpi ./batch.sh ./runs/1node.csv ./results/1node.csv`
+```bash
+sbatch -N [nodes] -t 5 ./batch.sh ./runs/[input].csv ./results/[output].csv
+# example
+sbatch -N 1 -t 5 ./batch.sh ./runs/bigmaq.csv ./results/bigmaq.csv
+```
 
 Look at `runs/1node.csv` for an example of the file format.
 
@@ -83,7 +94,7 @@ The result is in the results folder and we used the command mentioned in the
 
 ### Gset
 
-We ran a couple of gset tests which are contained in the `runs/gset-benchmark.csv`. We were not able to run all of them due to the length of time and some were run in a seperate command `runs/gset-benchmark2.csv`.
+We ran a couple of gset tests which are contained in the `runs/gset-benchmark.csv`. We were not able to run all of them due to the length of time and some were run in a seperate file `runs/gset-benchmark2.csv`.
 
 ```bash
 # Only got through the 2000 node cases
